@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Pemecah Masalah</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #1c1e21;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Ubah ke flex-start */
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            width: 100%;
+            max-width: 700px; /* Lebarkan sedikit */
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        h1 {
+            color: #17a2b8; /* Ganti warna */
+            margin-bottom: 1.5rem;
+        }
+        #problem-form textarea {
+            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            margin-bottom: 1rem;
+            box-sizing: border-box;
+            resize: vertical;
+            min-height: 80px;
+        }
+        /* Style untuk input file */
+        #image-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        #preview-container {
+            margin-bottom: 1rem;
+            display: none; /* Sembunyikan sampai ada gambar */
+        }
+        #image-preview {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        #solve-btn {
+            background-color: #17a2b8;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+        }
+        #solve-btn:hover {
+            background-color: #138496;
+        }
+        #solve-btn:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #17a2b8;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Area untuk menampilkan jawaban teks */
+        #result-container {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background-color: #e9ecef;
+            border-radius: 8px;
+            text-align: left;
+            white-space: pre-wrap; /* Agar format teks (seperti spasi dan baris baru) tetap rapi */
+            font-family: "Courier New", Courier, monospace;
+            line-height: 1.6;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💡 AI Pemecah Masalah oleh Andika</h1>
+        <form id="problem-form">
+            <label for="image-input">Upload Gambar (Screenshot Error, Soal, dll.)</label>
+            <input type="file" id="image-input" accept="image/*" required>
+            
+            <div id="preview-container">
+                <img id="image-preview" src="" alt="Image Preview">
+            </div>
+
+            <label for="prompt-input">Tulis Pertanyaan atau Permintaan Anda</label>
+            <textarea id="prompt-input" placeholder="Contoh: Jelaskan kenapa kode di gambar ini error dan berikan solusinya." required></textarea>
+            
+            <button id="solve-btn" type="submit">Pecahkan Masalah</button>
+        </form>
+
+        <div class="loader" id="loader"></div>
+
+        <div id="result-container"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('problem-form');
+        const imageInput = document.getElementById('image-input');
+        const promptInput = document.getElementById('prompt-input');
+        const solveBtn = document.getElementById('solve-btn');
+        const loader = document.getElementById('loader');
+        const resultContainer = document.getElementById('result-container');
+        const previewContainer = document.getElementById('preview-container');
+        const imagePreview = document.getElementById('image-preview');
+
+        let imageBase64 = '';
+
+        // Tampilkan preview saat gambar dipilih dan konversi ke Base64
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            // Tampilkan preview
+            previewContainer.style.display = 'block';
+            imagePreview.src = URL.createObjectURL(file);
+
+            // Konversi ke Base64
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                imageBase64 = reader.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const prompt = promptInput.value;
+            if (!prompt.trim() || !imageBase64) {
+                alert('Silakan upload gambar dan isi pertanyaan terlebih dahulu.');
+                return;
+            }
+
+            // Tampilkan loader dan nonaktifkan tombol
+            solveBtn.disabled = true;
+            solveBtn.innerText = 'Sedang berpikir...';
+            loader.style.display = 'block';
+            resultContainer.style.display = 'none';
+            resultContainer.innerText = '';
+
+            try {
+                const response = await fetch('/solve-problem', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        image_data: imageBase64 
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Gagal mendapat jawaban dari server.');
+                }
+                
+                // Tampilkan jawaban di kontainer hasil
+                resultContainer.innerText = data.answer;
+                resultContainer.style.display = 'block';
+
+            } catch (error) {
+                alert(`Terjadi kesalahan: ${error.message}`);
+            } finally {
+                // Sembunyikan loader dan aktifkan kembali tombol
+                loader.style.display = 'none';
+                solveBtn.disabled = false;
+                solveBtn.innerText = 'Pecahkan Masalah';
+            }
+        });
+    </script>
+</body>
+</html>
